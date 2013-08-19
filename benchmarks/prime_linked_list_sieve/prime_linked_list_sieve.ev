@@ -1,0 +1,110 @@
+struct Node {
+    struct Node next;
+    struct Node prev;
+    int num;
+};
+
+fun initNode (int num, struct Node prev) struct Node {
+    struct Node n;
+    n = new Node;
+    n.prev = prev;
+    n.num = num;
+    n.next = null;
+    return n;
+}
+
+fun printNode (struct Node n) void {
+    print n.num endl;
+}
+
+fun abs(int val) int {
+    if(val > 0) {
+        return val;
+    }
+    return -val;
+}
+
+fun sqrt(int n) int {
+    int xn, xn1;
+    xn = 1;
+    xn1 = (xn + n / xn) / 2;
+    while ( abs(xn1 - xn) > 1) {
+        xn = xn1;
+        xn1 = (xn + n / xn) / 2;
+    }
+    while (xn1 * xn1 > n ) {
+        xn1 = xn1 - 1;
+    }
+    return xn1;
+}
+
+fun makeList(int size) struct Node {
+    struct Node head, cur;
+    int i;
+    head = initNode(2, null);
+    cur = head;
+    i = 3;
+    while(i < size + 1) {
+        cur.next = initNode(i, cur);
+        cur = cur.next;
+        i = i + 2;
+    }
+    return head;
+}
+
+fun rem(struct Node n) struct Node {
+    struct Node tmp;
+    tmp = n;
+    if(n.prev != null) {n.prev.next = n.next;}
+    if(n.next != null) {n.next.prev = n.prev;}
+    delete n;
+    return tmp;
+}
+
+fun nuke(struct Node n) void {
+    int step, nxt;
+    step = n.num;
+    nxt = step * 2;
+    n = n.next;
+    while(n != null) {
+        if(n.num == nxt) {
+            n = rem(n);
+            nxt = nxt + step;
+        } else { 
+            if(n.num > nxt) {
+                nxt = (n.num + step) /step *step;
+            } 
+            n = n.next;
+        }
+    }
+}
+
+fun reduce(struct Node n, int len) void {
+    int lim;
+    lim = sqrt(len);
+    while (n.num < lim) {
+        nuke(n);
+        n = n.next;
+    }
+}
+
+fun printList(struct Node n) void {
+    while(n != null) {
+        printNode(n);
+        n = n.next;
+    }
+}
+
+fun main() int {
+    int NUM;
+    struct Node lst;
+    read NUM;
+    if(NUM < 2) {
+        return -1;
+    }
+    lst = makeList(NUM);
+    reduce(lst, NUM);
+    printList(lst);
+
+   return 0;
+}

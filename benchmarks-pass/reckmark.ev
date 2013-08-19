@@ -1,0 +1,128 @@
+#/**
+# * Ryan Reck
+# * 04 Apr 2007
+# *
+# * reckmark, a benchmark by reck
+# *
+# * reads a sequence of numbers off stdin, seperated by any non numerical chars
+# * after reading each number it echoes it to stdout and finds the largest 
+# * fibonnacci number <= it.  No, it does not do either of these tasks remotely
+# * efficiently, ie. if the number given is not a fibonacci number, it counts 
+# * backwards trying every number until it finds one, so for big numbers, lots 
+# * of time.
+# */
+
+#include<stdio.h>
+#include<stdlib.h>
+
+#typedef struct node *pnode;
+
+struct node{
+  struct node n;
+  int val;
+};
+
+fun newNode(int val) struct node {
+  struct node ret;
+  ret = new node;   #malloc(sizeof (struct node));
+  ret.val = val;
+  ret.n = null;
+  return ret;
+}
+
+fun freeNode(struct node n) void {
+  if(n.n != null){
+    freeNode(n.n);
+  }
+  delete n;                     #free(n);
+}
+
+fun append(struct node list, int newval) struct node {
+  if(list == null){
+    return (newNode(newval));
+  }else{ 
+    list.n = append(list.n, newval);
+  }
+  return list;
+}
+
+fun readVal(struct node list) int {
+  struct node prev, cur;
+  int digit;
+  int val;
+  
+  digit = 1;
+  val = 0;
+
+  if(list == null){
+    return 0;
+  }
+
+  cur = list; 
+  while(cur.n != null){
+    cur = cur.n;
+  }
+
+  while(cur != list){
+    val = val + cur.val * digit;
+    
+    prev = list; 
+    while(prev.n != cur){
+      prev = prev.n;
+    }
+
+    cur = prev;          
+    digit = digit * 10;      #/* Wow, ineffeciency can be FUN!! */
+  }
+  val = val + cur.val * digit;
+
+  return val;
+}
+
+fun nextFib(int nminusone, int n) int {
+  return  n + nminusone;
+}
+
+fun isFib(int num) bool {
+  int n, n1, n2;
+  n = 1;
+  n1 = 1;
+
+  while(n < num){
+    n2 = n1;
+    n1 = n;
+    n = nextFib(n2, n1);
+  }
+
+  if(num == n){
+    return true;
+  }
+  return false;
+}
+
+fun main() int {
+  
+  struct node list;
+  int c,v;
+
+  list = null;
+
+  read c;
+  while(c != -1){
+    if(c < 10){
+      list=append(list, c);
+    }else{
+      v = readVal(list);
+      print v endl;
+      while( !isFib(v) ){      #/* dang, ineffecient all over the place */
+        v = v - 1;
+      }
+      print v endl;
+      freeNode(list);
+      list = null;
+    }
+    read c;
+  }
+
+  return 0;
+}

@@ -1,0 +1,36 @@
+fun PrimeTime(int val) void
+{
+	int i;
+        bool isPrime;
+	isPrime = true;
+
+	i = 2;
+	while (i <= val / 2)
+	{
+		if ((val / i) * i == val)
+		{
+			isPrime = false;
+			i = val;
+		}
+		i = i + 1;
+	}
+
+	if (isPrime)
+	{
+		print val endl;
+	}
+	if (val > 2)
+	{
+		PrimeTime(val - 1);
+	}
+}
+
+fun main() int
+{
+	int in;
+	in = 0;
+	read in;
+	PrimeTime(in);
+
+      return 0;
+}

@@ -1,0 +1,619 @@
+header {
+	import java.util.*;
+	import antlr.*;
+}
+class CFGTreeParser extends TreeParser;
+options
+{
+	importVocab=MyLexer;
+	defaultErrorHandler=false;
+}
+{
+	Stack<BasicBlock> endIf = new Stack();
+	Stack<BasicBlock> startIf = new Stack();
+	Stack<BasicBlock> endLoop = new Stack();
+	Stack<BasicBlock> startLoop = new Stack();
+	BasicBlock entry;
+	BasicBlock nextBlock;
+	BasicBlock currentBlock;
+	BasicBlock exit;
+	BasicBlock mergeConditional;
+	BasicBlock thenBlock;
+	BasicBlock elseBlock;
+	BasicBlock startConditional;
+	String thenLabel = null;
+	String elseLabel = null;
+	String mergeLabel = null;
+	String structType = null;
+	boolean loadStructAddr = false;
+	boolean conditionalMove = false;
+	boolean read = false;
+	boolean dotOp = false;
+	Register alternateReg = null;
+	Immediate storeStruct = null;
+	int label = 0;
+	int reg = 0;	
+	int nextRegister() {
+		return (++reg);
+	}
+	int nextLabel() {
+		return (++label);
+	}
+	int paramCount = 0;
+	ActivationRecord arp = null;
+	
+}
+
+start returns [Vector cfgV = new Vector()]
+{Vector fun = null;}
+	: #(PROG t:. d:. f:.)//fun=f:functions)
+		{ 
+			arp = new ActivationRecord();
+			types(t);
+			fun = functions(f);
+			cfgV = fun; 
+		}
+	;
+functions returns [Vector cfgV = new Vector()] 
+	: #(FUNS (f:.
+		{ 
+			CFG cfg = new CFG();
+			//arp = new ActivationRecord();
+			cfg.setAR(arp);
+			entry = new BasicBlock();
+			entry.setLabel("entry");
+			exit = new BasicBlock();
+			exit.setLabel("L"+nextLabel());
+			cfg.setEntry(entry);
+			currentBlock = entry;
+			function(f);
+			currentBlock.addLeftSuccessor(exit);
+			cfg.setExit(exit);
+			cfg.setSize(arp.getStackSize());
+			cfgV.add(cfg);	
+		})*)
+	;
+function //returns [BasicBlock succ = new BasicBlock()]
+	: #(i:ID p:. r:. b:.)
+		{
+			arp.clearLocal();
+			nextBlock = new BasicBlock();
+			nextBlock.setLabel(i.getText());
+			nextBlock.addPredecessor(currentBlock);
+			currentBlock.addLeftSuccessor(nextBlock);
+			currentBlock = nextBlock;
+			paramCount = 0;
+			parameters(p);
+			paramCount = 0;
+			body(b);
+		}
+	;
+types
+	: #(TYPES (t:.
+		{ 
+			arp.defineStruct(t.getFirstChild().getText());
+			type_decl(t);
+		})*)
+	;
+type_decl
+	: #(STRUCT i:ID #(NESTED_DECL 
+			(#(TY_DECL t:. ty_id:ID)
+			 {
+				System.out.println("************ NESTED DECL *************"); 
+			 	arp.defineField(i.getText(), ty_id.getText());
+				if(t.getText().equals("struct")){
+					System.out.println("@@@@@@@@@@@@@@@@@@@@@nested struct decl@@@@@@@@@@@@@@@@@@@@@@@");
+					arp.nestedStructDecl(ty_id.getText(), t.getFirstChild().getText(), i.getText());
+				}
+					
+			 })*))
+	;
+
+declarations
+	: #(DECLS (declaration)*)
+	;
+declaration
+	: #(DECL t:. #(IDS (i:ID 
+		{ 
+			arp.addLocal(i.getText());
+			//System.out.println(t.getText());
+			//System.out.println(t.getFirstChild().getText());
+		       	if(t.getText().equals("struct")){
+				System.out.println("STRUCT LOCAL DECL");
+				arp.addLocalStruct(i.getText(), 
+					t.getFirstChild().getText());
+			}	
+		})*))
+	;
+parameters
+	: #(PARAMS (decl)*)
+	;
+decl
+	: #(TY_DECL t:. i:ID) 
+		{
+			//currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadOpCode.LOADINARG,
+			//			, i.getText(), new Immediate(Integer.toString(paramCount)), Register.make(i.getText())));
+			//paramCount++;
+			Register result = Register.make(i.getText());
+			currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadInArgOpCode.LOADINARG,
+						new Immediate(i.getText()), new Immediate(Integer.toString(paramCount)),
+						result));
+			paramCount++;
+		}
+	;
+body 
+	: #(BODY d:. s:.)
+		{
+			declarations(d);
+			statement_list(s);
+		}
+	;
+statement_list
+	: #(STMT_LST (s:statement)*)
+	//	{//System.out.println("CURRBLOCK::"+currentBlock.toString());}
+	;
+statement 
+{Register l, r; l = r = null; int i = 0;}
+	: #(EQUAL l=ll:lvalue r=expr)
+	//	{//System.out.println("CURRBLOCKEQUAL::"+currentBlock.toString());}
+		{
+			if(ll.getText().equals(".")){
+				currentBlock.addInst(new StoreInstruction(StoreInstruction.StoreAIOpCode.STOREAI,
+							r, l, storeStruct));
+			}
+			else
+			{
+				currentBlock.addInst(new MoveInstruction(MoveInstruction.MovOpCode.MOV,
+						r, l));
+			}
+		}
+	| #(p:PRINT r=expr (ENDL)?)
+		{
+			if(p.getNumberOfChildren() > 1){
+
+				currentBlock.addInst(new IOInstruction(IOInstruction.IOOpCode.PRINTLN,
+							r));
+			}
+			else 
+			{
+				currentBlock.addInst(new IOInstruction(IOInstruction.IOOpCode.PRINT,
+						r));
+			}
+		}
+	| #(READ lval:.)
+		{
+			read = true;
+			l = lvalue(lval);
+			read = false;
+			currentBlock.addInst(new IOInstruction(IOInstruction.IOOpCode.READ, l));
+			
+		}
+	| #(IF #(GUARD e:.) #(THEN b1:.) #(el:ELS (b2:.)?))
+		{ 
+			conditionalMove = true;
+			/* Conditional Block */
+			nextBlock = new BasicBlock();
+			nextBlock.setLabel("L"+nextLabel());
+			currentBlock.addLeftSuccessor(nextBlock);
+			nextBlock.addPredecessor(currentBlock);
+			currentBlock = nextBlock;
+			
+			//expr(e);
+			
+			/* Then Block */
+			nextBlock = new BasicBlock();
+			nextBlock.setLabel("L"+nextLabel());
+			thenLabel = nextBlock.getLabel();
+			currentBlock.addLeftSuccessor(nextBlock);
+			nextBlock.addPredecessor(currentBlock);
+			
+			/* Else Block */
+			if(el.getNumberOfChildren() > 0){
+				nextBlock = new BasicBlock();
+				nextBlock.setLabel("L"+nextLabel());
+				elseLabel = nextBlock.getLabel();
+				currentBlock.addRightSuccessor(nextBlock);
+				nextBlock.addPredecessor(currentBlock);
+			}
+			
+			mergeConditional = new  BasicBlock();
+			mergeConditional.setLabel("L"+nextLabel());
+			
+			if(!(el.getNumberOfChildren() > 0)){
+				elseLabel = mergeConditional.getLabel();
+			}
+
+			expr(e);
+			conditionalMove = false;
+			startConditional = currentBlock;
+			startIf.push(startConditional);
+			
+			//mergeConditional = new  BasicBlock();
+			//mergeConditional.setLabel("L"+nextLabel());
+
+			endIf.push(mergeConditional);
+			endIf.push(mergeConditional);
+			endIf.push(mergeConditional);
+			
+			if(el.getNumberOfChildren() > 0){
+				currentBlock.getRightSuccessor().addInst(new LoadInstruction(LoadInstruction.LoadIOpCode.LOADI,  
+							new Immediate(Integer.toString(0)), alternateReg));
+			}
+
+			currentBlock = currentBlock.getLeftSuccessor();
+			block(b1);
+
+			mergeConditional = (BasicBlock)endIf.pop();
+			currentBlock.addLeftSuccessor(mergeConditional);
+			mergeConditional.addPredecessor(currentBlock);
+			mergeLabel = mergeConditional.getLabel();
+			//currentBlock.addInst(new ILOC("JumpI", "", "", mergeLabel));
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.JumpOpCode.JUMPI , 
+						new Label(mergeLabel)));
+
+			currentBlock = (BasicBlock)startIf.pop();
+
+			if(el.getNumberOfChildren() > 0){
+				currentBlock = currentBlock.getRightSuccessor();
+				block(b2);
+
+				mergeConditional = (BasicBlock)endIf.pop();
+				mergeLabel = mergeConditional.getLabel();
+				currentBlock.addInst(new BranchingInstruction(BranchingInstruction.JumpOpCode.JUMPI , 
+							new Label(mergeLabel)));
+				
+				currentBlock.addLeftSuccessor(mergeConditional);
+				mergeConditional.addPredecessor(currentBlock);
+			}
+			else
+			{
+				mergeConditional = (BasicBlock)endIf.pop();
+				currentBlock.addRightSuccessor(mergeConditional);
+				mergeConditional.addPredecessor(currentBlock);
+			}
+			//currentBlock = mergeConditional;
+			currentBlock = (BasicBlock)endIf.pop();
+			if(!(el.getNumberOfChildren() > 0)){
+				currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadIOpCode.LOADI,  
+							new Immediate(Integer.toString(0)), alternateReg));
+			}
+			
+		}
+
+
+	| #(WHILE #(GUARD ge:.) #(DO wb:.))
+		{
+
+			/* Conditional Block */
+			nextBlock = new BasicBlock();
+			nextBlock.setLabel("L"+nextLabel());
+			currentBlock.addLeftSuccessor(nextBlock);
+			nextBlock.addPredecessor(currentBlock);
+			currentBlock = nextBlock;
+			
+			/* loop body */	
+			nextBlock = new BasicBlock();
+			nextBlock.setLabel("L"+nextLabel());
+			thenLabel = nextBlock.getLabel();
+			currentBlock.addLeftSuccessor(nextBlock);
+			nextBlock.addPredecessor(currentBlock);
+			
+			/* after while */	
+			mergeConditional = new  BasicBlock();
+			mergeConditional.setLabel("L"+nextLabel());
+
+			/* sets the label for after while */
+			elseLabel = mergeConditional.getLabel();
+			
+			conditionalMove	= true;	
+			expr(ge);
+			conditionalMove	= false;	
+			
+			currentBlock.addRightSuccessor(mergeConditional);
+			mergeConditional.addPredecessor(currentBlock);	
+
+			startConditional = currentBlock;
+			startLoop.push(startConditional);
+			endLoop.push(mergeConditional);
+			
+			currentBlock = currentBlock.getLeftSuccessor();
+			block(wb);
+			
+			conditionalMove	= true;	
+			expr(ge);
+			conditionalMove	= false;	
+			
+			currentBlock.addLeftSuccessor((BasicBlock)startLoop.pop());	
+			
+			currentBlock = (BasicBlock)endLoop.pop();
+
+		}
+	| #(RETURN (r=expr)?)
+		{
+			if(r != null){
+				currentBlock.addInst(new InvokeInstruction(InvokeInstruction.RetOpCode.RET,
+							r));
+			}
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.JumpOpCode.JUMPI , 
+						new Label(exit.getLabel())));
+		}
+	| #(DELETE r=expr)
+	| #(INVOKE ID arguments)
+	;
+block
+	: statement_list
+	;
+lvaluedot returns [Register result = null]
+{Register l, r; l = r = null;}
+	: #(d:DOT e1:. e2:.)
+		{
+			System.out.println("IN LVALUE");
+			dotOp = true;
+			result = Register.make();
+			l = lvaluedot(e1);
+			if(e1.getText().equals(".")){
+				//structType = arp.getStructType(e1.getSibling().getText());
+				System.out.println("e1.getNextSibling()::"+e1.getFirstChild().getNextSibling().getText());
+				structType = arp.getNestedStructType(e1.getFirstChild().getNextSibling().getText(), structType);
+			}	
+			System.out.println("OKAY THROUGH HERE");
+			System.out.println("STRUCTTYPE::"+structType);
+			currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadAIOpCode.LOADAI,
+						l, new Immediate( arp.getFieldOffset(structType, e2.getText()) + ":" + e2.getText()), 
+						result, arp.getFieldOffset(structType, e2.getText())));
+			//result = l;
+			//storeStruct = new Immediate(arp.getFieldOffset(structType, e2.getText()) + ":" + e2.getText());
+		}
+	| i:ID
+		{
+			if(!dotOp){
+				result = Register.getReg(i.getText());
+				if(result == null){
+					result = Register.make(i.getText());
+
+					if(read)
+					{
+						currentBlock.addInst(new BinopInstruction(BinopInstruction.ArithmeticOpCode.ADDI,
+								Register.getReg("rarp"), new Immediate( arp.getVarOffset(i.getText()) + ":" + i.getText()),
+								result));
+						Register.remove(i.getText());	
+					}
+					else
+					{
+						currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadAIOpCode.LOADAI,
+								Register.getReg("rarp"), new Immediate( arp.getVarOffset(i.getText()) + ":" + i.getText()), 
+								result, arp.getVarOffset(i.getText())));
+					}
+				}
+			}	
+			else
+			{
+				System.out.println("EXECUTED");
+				result = Register.make();
+				structType = arp.getStructType(i.getText());
+				System.out.println("STRUCT TYPE : " + structType);
+				currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadAIOpCode.LOADAI,
+						Register.getReg("rarp"), new Immediate( arp.getVarOffset(i.getText()) + ":" + i.getText()), 
+						result, arp.getVarOffset(i.getText())));
+				dotOp = false;
+			}	
+		}
+	;
+lvalue returns [Register result = null]
+{Register l, r; l = r = null;}
+	: #(d:DOT e1:. e2:.)
+		{
+			System.out.println("IN LVALUE");
+			dotOp = true;
+			//result = Register.make();
+			l = lvaluedot(e1);
+			if(e1.getText().equals(".")){
+				//structType = arp.getStructType(e1.getSibling().getText());
+				System.out.println("e1.getNextSibling()::"+e1.getFirstChild().getNextSibling().getText());
+				structType = arp.getNestedStructType(e1.getFirstChild().getNextSibling().getText(), structType);
+			}	
+			System.out.println("OKAY THROUGH HERE");
+			System.out.println("STRUCTTYPE::"+structType);
+			//currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadAIOpCode.LOADAI,
+			//			l, new Immediate( arp.getFieldOffset(structType, e2.getText()) + ":" + e2.getText()), 
+			//			result, arp.getFieldOffset(structType, e2.getText())));
+			result = l;
+			storeStruct = new Immediate(arp.getFieldOffset(structType, e2.getText()) + ":" + e2.getText());
+		}
+	| i:ID
+		{
+			if(!dotOp){
+				result = Register.getReg(i.getText());
+				if(result == null){
+					result = Register.make(i.getText());
+
+					if(read)
+					{
+						currentBlock.addInst(new BinopInstruction(BinopInstruction.ArithmeticOpCode.ADDI,
+								Register.getReg("rarp"), new Immediate( arp.getVarOffset(i.getText()) + ":" + i.getText()),
+								result));
+						Register.remove(i.getText());	
+					}
+					else
+					{
+						currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadAIOpCode.LOADAI,
+								Register.getReg("rarp"), new Immediate( arp.getVarOffset(i.getText()) + ":" + i.getText()), 
+								result, arp.getVarOffset(i.getText())));
+					}
+				}
+			}	
+			else
+			{
+				System.out.println("EXECUTED");
+				result = Register.make();
+				structType = arp.getStructType(i.getText());
+				System.out.println("STRUCT TYPE : " + structType);
+				currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadAIOpCode.LOADAI,
+						Register.getReg("rarp"), new Immediate( arp.getVarOffset(i.getText()) + ":" + i.getText()), 
+						result, arp.getVarOffset(i.getText())));
+				dotOp = false;
+			}	
+		}
+	;
+arguments
+{Register r = null; }
+	: #(ARGS (r=expr)*)
+	;
+expr returns [Register result = null]
+{Register t1, t2, l; l = t1= t2 = null;}
+	: i:ID
+		{
+			if(!dotOp){
+			//currentBlock.addInst(new ILOC("loadAI", "rarp","@"+i.getText(),  "r"+result));
+				result = Register.getReg(i.getText());
+				if(result == null){
+					result = Register.make(i.getText());
+					currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadAIOpCode.LOADAI,
+							Register.getReg("rarp"), new Immediate( arp.getVarOffset(i.getText()) + ":" + i.getText()), 
+							result, arp.getVarOffset(i.getText())));
+				}
+			}
+			else
+			{
+				System.out.println("EXECUTED");
+				result = Register.make();
+				structType = arp.getStructType(i.getText());
+				System.out.println("STRUCT TYPE : " + structType);
+				currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadAIOpCode.LOADAI,
+						Register.getReg("rarp"), new Immediate( arp.getVarOffset(i.getText()) + ":" + i.getText()), 
+						result, arp.getVarOffset(i.getText())));
+				dotOp = false;
+			}	
+		}
+	| #(p:PLUS t1=expr t2=expr) 
+		{ 
+			result = Register.make();
+			currentBlock.addInst(new BinopInstruction(BinopInstruction.ArithmeticOpCode.ADD,
+						t1, t2, result));
+
+		}
+	| #(MINUS t1=expr (t2=expr)?)
+	| #(MULT t1=expr t2=expr)
+		{ 
+			result = Register.make();
+			currentBlock.addInst(new BinopInstruction(BinopInstruction.ArithmeticOpCode.MULT,
+						t1, t2, result));
+		}
+	| #(DIV t1=expr t2=expr)
+		{ 
+			result = Register.make();
+			currentBlock.addInst(new BinopInstruction(BinopInstruction.ArithmeticOpCode.DIV,
+						t1, t2, result));
+		}
+	| #(AND t1=expr t2=expr)
+		{ 
+			//result = nextRegister(); 
+			//currentBlock.addInst(new ILOC("and", "r"+t1, "r"+t2, "r"+result));
+			result = Register.make();
+			currentBlock.addInst(new BinopInstruction(BinopInstruction.BooleanOpCode.AND,
+						t1, t2, result));
+		}
+	| #(OR t1=expr t2=expr)
+		{ 
+			//result = nextRegister(); 
+			//currentBlock.addInst(new ILOC("or", "r"+t1, "r"+t2, "r"+result));
+//			result = Register.make();
+//			currentBlock.addInst(new BinopInstruction(BinopInstruction.BooleanOpCode.OR,
+//						t1, t2, result));
+		}
+	| #(COMPAR t1=expr t2=expr)
+	| #(LT t1=expr t2=expr)
+		{
+			if(conditionalMove){
+				alternateReg = Register.make();
+				result = alternateReg;
+				currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadIOpCode.LOADI,  new Immediate(Integer.toString(1)), result));
+				currentBlock.addInst(new BranchingInstruction(BranchingInstruction.ComparOpCode.COMP,
+							t1, t2, Register.getReg("ccr")));
+				currentBlock.addInst(new BranchingInstruction(BranchingInstruction.BranchOpCode.CBRLT,
+							Register.getReg("ccr"), new Label(thenLabel), new Label(elseLabel)));
+			}
+			else
+			{
+				result = Register.make();
+				currentBlock.addInst(new BranchingInstruction(BranchingInstruction.ComparOpCode.COMP,
+							t1, t2, result));
+			}
+
+		}	
+	| #(GT t1=expr t2=expr)
+		{
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.ComparOpCode.COMP,
+						t1, t2, Register.getReg("ccr")));
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.BranchOpCode.CBRGT,
+						Register.getReg("ccr"), new Label(thenLabel), new Label(elseLabel)));
+
+		}	
+	| #(GTE t1=expr t2=expr)
+		{
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.ComparOpCode.COMP,
+						t1, t2, Register.getReg("ccr")));
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.BranchOpCode.CBRGE,
+						Register.getReg("ccr"), new Label(thenLabel), new Label(elseLabel)));
+
+		}	
+	| #(LTE t1=expr t2=expr)
+		{
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.ComparOpCode.COMP,
+						t1, t2, Register.getReg("ccr")));
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.BranchOpCode.CBRLE,
+						Register.getReg("ccr"), new Label(thenLabel), new Label(elseLabel)));
+
+		}	
+	| #(NE t1=expr t2=expr)
+		{
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.ComparOpCode.COMP,
+						t1, t2, Register.getReg("ccr")));
+			currentBlock.addInst(new BranchingInstruction(BranchingInstruction.BranchOpCode.CBRNE,
+						Register.getReg("ccr"), new Label(thenLabel), new Label(elseLabel)));
+
+		}	
+	| #(BANG t1=expr)
+	| #(DOT e1:. e2:.)//t1=. t2:.)
+		{	
+			dotOp = true;
+			result = Register.make();
+			l = expr(e1);
+			if(e1.getText().equals(".")){
+				//structType = arp.getStructType(e1.getSibling().getText());
+				System.out.println("e1.getNextSibling()::"+e1.getFirstChild().getNextSibling().getText());
+				structType = arp.getNestedStructType(e1.getFirstChild().getNextSibling().getText(), structType);
+			}	
+			System.out.println("OKAY THROUGH HERE");
+			System.out.println("STRUCTTYPE::"+structType);
+			currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadAIOpCode.LOADAI,
+						l, new Immediate( arp.getFieldOffset(structType, e2.getText()) + ":" + e2.getText()), 
+						result, arp.getFieldOffset(structType, e2.getText())));
+		}
+	| #(FUNCALL ID arguments)
+		{
+
+		}
+	| #(NEW ni:ID)
+		{
+
+		}
+	| NULL
+	| TRUE
+		{ 
+			//result = nextRegister();
+			result = Register.make();
+			currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadIOpCode.LOADI,  new Immediate("1"), result));
+		}
+	| FALSE
+		{
+			result = Register.make();
+			currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadIOpCode.LOADI,  new Immediate("0"), result));
+		}
+	| n:NUM
+		{ 
+			//result = nextRegister();
+			result = Register.make();
+			currentBlock.addInst(new LoadInstruction(LoadInstruction.LoadIOpCode.LOADI,  new Immediate(n.getText()), result));
+		}
+	;

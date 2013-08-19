@@ -1,0 +1,84 @@
+struct Node
+{
+    int value;
+    struct Node next;
+};
+
+fun LinkedListnewNode(int value) struct Node
+{
+    struct Node node;
+    node = new Node;
+    node.value = value;
+    node.next = null;
+    return node;
+}
+
+fun LinkedListcreate(int size) struct Node
+{
+    struct Node head, cur;
+    int idx;
+
+    head = LinkedListnewNode(0);
+    cur = head;
+    idx = 1;
+
+    while (idx < size) {
+        cur.next = LinkedListnewNode(idx);
+        cur = cur.next;
+        idx = idx + 1;
+    }
+    
+    return head;
+}
+
+fun LinkedListdestroy(struct Node head) void
+{
+    struct Node cur, next;
+    cur = head;
+
+    while (cur != null) {
+        next = cur.next;
+        delete cur;
+        cur = next;
+    }
+}
+
+fun LinkedListfind(struct Node node, int needle) struct Node
+{
+    if (node == null) {
+        return null;
+    }
+
+    if (node.value == needle) {
+        return node;
+    }
+
+    return LinkedListfind(node.next, needle);
+}
+
+fun main() int
+{
+    int size, needle, repeats;
+    struct Node head, cur;
+
+    read size;
+    read needle;
+    read repeats;
+
+    cur = null;
+    head = LinkedListcreate(size);
+    while (repeats > 0) {
+        cur = LinkedListfind(head, needle);
+        repeats = repeats - 1;
+    }
+
+    if (cur == null) {
+        print -1 endl;
+        LinkedListdestroy(head);
+        return -1;
+    }
+
+    print cur.value endl;
+    LinkedListdestroy(head);
+    return 0;
+}

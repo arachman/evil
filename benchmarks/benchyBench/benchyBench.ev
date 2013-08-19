@@ -1,0 +1,49 @@
+# types
+struct ego {int a; bool b;};
+struct superego { int first; int sec; int third; };
+
+# declarations
+int global1, global2;
+bool torf;
+
+# functions
+fun theFunc(int jerky, bool twerky) void
+{
+ struct ego helper;
+
+ helper = new ego;
+ helper.a = jerky;
+ helper.b = twerky;
+
+ if (helper.b)
+ {
+  print helper.a * helper.a * 4 * 4 * helper.a;
+ }
+ print 3 endl;
+ delete helper;
+ return;
+}
+
+fun fib(int i) int
+{
+ if(i < 2)
+ {
+  return i;
+ }
+ else
+ {
+  return fib(i-1) + fib(i-2);
+ }
+}
+
+fun main() int
+{
+ int result;
+ int six;
+ read global1;
+ read six;
+
+ theFunc (global1, true);
+ result = fib (six);
+ return global1 + global2;
+}

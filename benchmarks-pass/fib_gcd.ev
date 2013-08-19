@@ -1,0 +1,87 @@
+struct B 
+{
+	int fa;
+	int fb;
+};
+
+struct A
+{
+	int dividend;
+	int divisor;
+	struct B b;
+};
+
+fun mod(int a, int b) int
+# mod() returns a modulo b 
+{
+	if ( a < b )
+	{
+		return a;
+	}
+	else
+	{
+		return mod(a-b, b);
+	}
+}
+
+fun gcd(struct A a) int
+# gcd() calculates the greatest common divisor of two values
+#   using Euclid's Algorithm.	
+{
+	int temp;
+	while( a.divisor != 0 )
+	{
+		temp = a.divisor;
+		a.divisor = mod(a.dividend, a.divisor);
+		a.dividend = temp;
+	}
+	return a.dividend;
+}
+
+fun fib(int x) int
+# fib() returns x(th) fibonacci number. 
+{
+	if ( x == 0 )
+	{
+		return 0;
+	}
+	if ( x == 1 )
+	{
+		return 1;
+	}
+	else
+	{
+		return fib(x-1) + fib(x-2);
+	}
+}
+
+fun main() int
+{
+	int x,y, result;
+	struct A a;
+
+        a = new A;
+        a.b = new B;
+
+	read x;
+	read y;
+
+	while( x != 0 && y != 0 )	
+	{
+		a.b.fa = fib(x);
+		a.b.fb = fib(y);
+		
+
+		a.divisor = a.b.fa;
+		a.dividend = a.b.fb;
+	
+		result = gcd(a);
+	
+		print result endl;
+	
+		read x;
+		read y;
+	}
+
+	return 0;
+}

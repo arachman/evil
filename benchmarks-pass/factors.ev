@@ -1,0 +1,36 @@
+#   Compute the modulus operation on x % y and return
+# the int.
+fun mymod (int x, int y) int {
+    while( x>=y ){
+        x = x-y;
+    }
+    return x;
+}
+
+#   Main function.  Get user input and print out the
+# factors.
+fun main() int {
+
+    int x, y, n;
+    x = 0; y = 0; n = 0;
+
+	read x; #get user input
+    n = x;
+
+	# Loop from 2 up to the given number checking if
+	# there's a remainder of zero.
+	y = 2;
+#	print y;
+#	print n endl;
+    while( y < n ){
+#	print mymod(n, y) endl;	
+        if(mymod(n, y) == 0){
+            print y endl; #print factors
+            n = n / y;
+            y = 2;
+        }
+		y = y + 1;
+    }
+	print n endl; #print the last factor
+	return 0;
+}

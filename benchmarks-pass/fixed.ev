@@ -1,0 +1,82 @@
+fun int2fix (int arg) int
+{
+    return arg * 65536;
+}
+
+fun printfixhelper (int arg) void {
+    int digit;
+    digit = arg - ((arg / 10) * 10);
+}
+
+fun printfix (int arg) void
+{
+    int whole;
+    int fract;
+    whole = arg / 65536;
+    fract = arg - (whole * 65536);
+
+    print whole;
+    print fract endl;
+}
+
+fun fixmul (int arg1, int arg2) int
+{
+   int x, y, z;
+
+   x = (arg1 / 256);
+   y = (arg2 / 256);
+   z = x * y;
+   return z;
+}
+
+fun xcubed (int x) int
+{
+   return fixmul(x, fixmul(x, x));
+}
+
+fun integrate(int start, int end, int n) int
+{
+    int acc, delta, x;
+
+    acc = int2fix(0);
+    start = int2fix(start);
+    end = int2fix(end);
+    delta = (end - start) / n;
+    
+    if(delta == 0) {
+        delta = 1;
+    }
+    
+    x = start;
+    while (x <= end) {
+        acc = acc + xcubed(x) / n;
+        x = x + delta;
+    }
+
+    return acc;
+}
+
+fun main () int
+{
+    int a, b, n, i, cases;
+
+    read cases;
+
+    while(cases > 0) {
+
+        read a;
+        read b;
+        read n;
+        
+        i = 0;
+        while(i < 32768) {
+            integrate(a, b, n);
+            i = i + 1;
+        }
+
+        printfix(integrate(a, b, n));
+        cases = cases - 1;
+    }
+
+    return 0;
+}

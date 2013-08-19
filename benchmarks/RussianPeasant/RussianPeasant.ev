@@ -1,0 +1,158 @@
+
+# This program runs 2 exponentiation algorithms and a check.
+# Inputs:
+# 	base (int)
+# 	exponent (int)
+# Outputs:
+# 	Result of binary exponentation
+# 	Number of multiplies to do binary
+# 	Result of the Russian Peasant algorithm
+# 	Number of multiplies to do Russian Peasant
+# 	1 if the check passed, 0 if not
+#
+# If last output is ever 0, there is likely a bug in the code
+#
+# Note: The result will be wrong if it should be larger than INT_MAX,
+# 	but the number of multiplies should still be correct.
+
+struct results
+{
+	int multiplies;
+	int answer;
+};
+
+fun binexp (int base, int pow) struct results
+{
+	struct results sub;
+
+        sub = new results;
+	
+	if (pow == 0)
+	{
+		sub.answer = 1;
+		sub.multiplies = 0;
+		return sub;
+	}
+	else{ if (pow == 1)
+	{
+		sub.answer = base;
+		sub.multiplies = 0;
+		return sub;
+	}
+}
+
+	sub = binexp(base,(pow/2));
+
+	if ((pow/2)*2 != pow)
+	{
+		sub.answer = base * sub.answer * sub.answer;
+		sub.multiplies = sub.multiplies + 2;
+	}
+	else
+	{
+		sub.answer = sub.answer * sub.answer;
+		sub.multiplies = sub.multiplies + 1;
+	}
+
+	return sub;
+}
+
+fun rpexp (int base, int pow) struct results
+{
+	int p;
+	int sub;
+	struct results r;
+
+         r = new results;
+         r.multiplies = 0;
+         p = pow;
+         sub = base;
+
+	if (pow == 0)
+	{
+		r.answer = 1;
+		return r;
+	}
+
+	while ((p/2)*2 == p)
+	{
+		sub = sub * sub;
+		p = p / 2;
+		r.multiplies = r.multiplies + 1;
+	}
+
+	r.answer = sub;
+	p = p / 2;
+
+	while (p > 0)
+	{
+		sub = sub * sub;
+		r.multiplies = r.multiplies + 1;
+
+		if ((p/2)*2 != p)
+		{
+			r.answer = r.answer * sub;
+			r.multiplies = r.multiplies + 1;
+		}
+
+		p = p / 2;
+	}
+
+	return r;
+}
+
+fun checkexp (int base, int pow) int
+{
+	int i;
+	int result;
+         i = 0;
+         result = 1;
+
+	if (pow == 0)
+	{
+		return 1;
+	}
+	
+	while (i < pow)
+	{
+		result = result * base;
+		i = i + 1;
+	}
+
+	return result;
+}
+
+fun main () int
+{
+	int base, pow, c;
+	struct results b, rp;
+
+	read base;
+	read pow;
+
+	if (pow < 0)
+	{
+		return 0;
+	}
+
+	b = binexp(base,pow);
+	print b.answer endl;
+	print b.multiplies endl;
+
+	rp = rpexp(base,pow);
+	print rp.answer endl;
+	print rp.multiplies endl;
+
+	c = checkexp(base,pow);
+
+	if (b.answer == c && rp.answer == c)
+	{
+		print 1 endl;
+	}
+	else
+	{
+		print 0 endl;
+	}
+
+      return 0;
+}

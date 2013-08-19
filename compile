@@ -1,0 +1,3 @@
+java antlr.Tool -traceTreeParser  evil.g
+java antlr.Tool cfg.g
+javac *.java

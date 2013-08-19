@@ -1,0 +1,70 @@
+int largeprime1, largeprime2, M;
+
+#abs operation
+fun abs(int n) int {
+	if (n < 0) {
+		n = n - 2*n;
+	}
+
+      return n;
+}
+
+#modulo operation
+fun mod(int a, int n) int {
+	return a - n * (a/n);
+}
+
+#Euclidian algorithm
+#function gcd(a, b)
+#     if b = 0 return a
+#     else return gcd(b, a mod b)
+fun gcd(int a, int b) int {
+	if (b == 0) {
+		return a;
+	} else {
+		return gcd(b, mod(a, b));
+	}
+}
+
+#Blum Blum Shub pseudorandom number
+fun blum(int in) int {
+	int M;
+	M = largeprime1 * largeprime2;
+#Prevent negative or zero, since they will mess up the algorithm
+	return abs(mod(in * in, M)) + 1;
+}
+
+#Pollard's rho algorithm
+#Factorizes an integer
+fun rho(int n) int {
+	int x, y, d, t;
+	x = 2;
+	y = 2;
+	d = 1;
+	while (d == 1) {
+		x = blum(x);
+		y = blum(blum(y));
+		t = abs(x - y);
+		d = gcd(t, n);
+	}
+	if (d == n) {
+		return 0;
+	} else {
+		return d;
+	}
+}
+
+fun main() int {
+	int composite;
+# Source:  The First 1,000,000 Primes (from primes.utm.edu)
+	largeprime1 = 30211;
+	largeprime2 = 30223;
+
+	read composite;
+	while (composite != 0) {
+		print rho(composite) endl;
+		read composite;
+	}
+
+   return 0;
+}

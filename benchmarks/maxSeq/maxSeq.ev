@@ -1,0 +1,42 @@
+int seed;
+
+fun mod (int a, int b) int {
+  return a - ((a / b) * b);
+}
+
+fun rand () int {
+  seed = mod(seed, 532) * 24 + 6;
+  return seed;
+}
+
+fun main () int {
+  int num, maxBest, maxCur, count, rTemp;
+
+  read count;
+  read seed;
+
+  rTemp = rand();
+  num = mod(rTemp, 201) - 100;
+  maxBest = num;
+  maxCur = num;
+
+  while (count > 0) {
+    count = count - 1;
+    rTemp = rand();
+    num = mod(rTemp, 201) - 100;
+
+    if (maxCur > 0) {
+      maxCur = maxCur + num;
+    } else {
+      maxCur = num;
+    }
+
+    if (maxCur > maxBest) {
+      maxBest = maxCur;
+    }
+  }
+
+  print maxBest endl;
+
+   return 0;
+}

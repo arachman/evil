@@ -1,0 +1,24 @@
+How to build:
+
+Execute the Makefile
+
+-------------------------------------
+
+How to run the compiler:
+
+java Main [-opts...] file
+
+Options available:
+	-displayAST	
+	-dumpIL
+		dumps the iloc instructions
+	-noTypeCheck
+		bypass typechecking
+	-regAlloc
+		enable register allocation
+	-tailRec
+		enable tail recursion optimization
+	-copyProp
+		enable copy propagation optimization
+	-noGen
+		bypass assembly generation
